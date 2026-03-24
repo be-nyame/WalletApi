@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.local
+.env.production
+.env.staging
+**/secrets/
+**/*.pfx
+**/*.pem
+**/*.key
+**/*.p12
+**/appsettings.Production.json
+**/appsettings.Staging.json
+**/appsettings.Development.json
+
+# dotnet user secrets are stored outside the project by default
+# but if anyone creates a local secrets file, block it
+**/secrets.json
+
+# Docker build artifacts
+.docker/
+
+# Ignore actual log files)
+**/logs/*.log
+**/logs/*.txt
+
+# Standard .NET ignores
+**/bin/
+**/obj/
+*.user
+.vs/
+.vscode/
+.idea/
+*.suo
+*.swp
