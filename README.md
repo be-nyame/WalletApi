@@ -94,7 +94,7 @@ WalletApi is a backend service that allows users to register, authenticate, mana
 | Component | Role |
 |---|---|
 | **Load Balancer** (Nginx / AWS ALB) | Terminates TLS, distributes traffic across API pods, and forwards `X-Forwarded-For` and `X-Forwarded-Proto` headers. |
-| **Wallet API Cluster** | N stateless ASP.NET Core 8 pods. Stateless design allows horizontal scaling without session affinity. |
+| **Wallet API Cluster** | N stateless ASP.NET Core 9 pods. Stateless design allows horizontal scaling without session affinity. |
 | **Auth Service** | Issues short-lived JWT access tokens and rotating refresh tokens. Refresh tokens are BCrypt-hashed before persistence. |
 | **Redis Cache** | Stores session data and idempotency keys. Prevents duplicate financial operations from being processed more than once. |
 | **PostgreSQL Primary** | Source of truth for all wallet balances and transaction records. All writes target this node. Transfers use `SELECT FOR UPDATE` row-level locking with GUID-ordered acquisition to prevent deadlocks. |
