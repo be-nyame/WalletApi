@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WalletApi.Domain\WalletApi.Domain.csproj" />
+    <ProjectReference Include="..\WalletApi.Application\WalletApi.Application.csproj" />
   </ItemGroup>
 
 </Project>
