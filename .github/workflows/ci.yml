@@ -1,0 +1,21 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY:    ghcr.io
+  IMAGE_NAME:  ${{ github.repository }}/wallet-api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet build
