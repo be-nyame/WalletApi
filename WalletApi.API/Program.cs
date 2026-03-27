@@ -10,6 +10,7 @@ using WalletApi.Application.Interfaces;
 using WalletApi.Application.Services;
 using WalletApi.Application.Validators;
 using WalletApi.Infrastructure.Data;
+using WalletApi.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -107,13 +108,22 @@ if (!isTesting)
     }
 }
 
+// Middleware pipeline
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                       | ForwardedHeaders.XForwardedProto
+});
+// Convert unhandled exceptions to structured JSON error responses.
+app.UseMiddleware<ExceptionMiddleware>();
+
 // Decode JWT → populate HttpContext.User.
 app.UseAuthentication();
 
 // Enforce [Authorize] using the identity set by UseAuthentication.
 app.UseAuthorization();
 
-// ── Swagger (development only) ────────────────────────────────────────────────
+// Swagger (development only)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
