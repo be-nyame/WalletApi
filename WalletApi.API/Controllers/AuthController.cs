@@ -26,4 +26,35 @@ public class AuthController : ControllerBase
         var result = await _auth.RegisterAsync(req, ct);
         return CreatedAtAction(nameof(Register), result);
     }
+    
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest req, CancellationToken ct)
+    {
+        var result = await _auth.LoginAsync(req, ct);
+        return Ok(result);
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(
+        [FromBody] string refreshToken, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _auth.RefreshTokenAsync(refreshToken, ct);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An unexpected error occurred during the request.");
+            return StatusCode(500, new { error = "An unexpected error occurred." });
+        }
+    }
 }
