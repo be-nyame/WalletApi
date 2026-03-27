@@ -2,20 +2,55 @@ name: CI / CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, development]
   pull_request:
-    branches: [main, develop]
+    branches: [main, development]
 
 env:
   REGISTRY:    ghcr.io
   IMAGE_NAME:  ${{ github.repository }}/wallet-api
 
 jobs:
-  build:
+  # Job 1 — Build and run all tests
+  test:
+    name: Build & Test
     runs-on: ubuntu-latest
+
+    services:
+      # Real PostgreSQL for integration tests
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB:       walletdb_test
+          POSTGRES_USER:     test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user -d walletdb_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
-      - run: dotnet build
+          dotnet-version: "9.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore WalletApi.sln
+
+      - name: Build
+        run: dotnet build WalletApi.sln --no-restore --configuration Release
+
+      - name: Run unit tests
+        run: |
+          dotnet test WalletApi.Tests/ \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=unit-tests.trx" \
+            --collect:"XPlat Code Coverage"
