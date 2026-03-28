@@ -11,4 +11,6 @@ public class User : BaseEntity
     public bool IsVerified { get; set; } = false;
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }
+    
+    public ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
 }
