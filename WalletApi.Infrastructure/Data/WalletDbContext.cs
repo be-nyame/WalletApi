@@ -10,6 +10,7 @@ public class WalletDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<Wallet> Wallets => Set<Wallet>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
