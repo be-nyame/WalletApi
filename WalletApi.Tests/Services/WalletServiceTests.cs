@@ -118,6 +118,81 @@ public class WalletServiceTests : IDisposable
 
          Assert.Equal(350m, result.Balance);
      }
+     
+     [Fact]
+     public async Task TransferAsync_WithSufficientFunds_UpdatesBothBalances()
+     {
+         var (sender,    senderWallet)    = await SeedUserWithWalletAsync(500m);
+         var (recipient, recipientWallet) = await SeedUserWithWalletAsync(0m);
+
+         await _sut.TransferAsync(sender.Id,
+             new TransferRequest(recipientWallet.Id, 200m, "Payment"));
+
+         await _db.Entry(senderWallet).ReloadAsync();
+         await _db.Entry(recipientWallet).ReloadAsync();
+
+         Assert.Equal(300m, senderWallet.Balance);
+         Assert.Equal(200m, recipientWallet.Balance);
+     }
+
+     [Fact]
+     public async Task TransferAsync_WithInsufficientFunds_ThrowsInvalidOperationException()
+     {
+         var (sender,    _)               = await SeedUserWithWalletAsync(50m);
+         var (recipient, recipientWallet) = await SeedUserWithWalletAsync();
+
+         await Assert.ThrowsAsync<InvalidOperationException>(
+             () => _sut.TransferAsync(sender.Id,
+                 new TransferRequest(recipientWallet.Id, 200m, null)));
+     }
+
+     [Fact]
+     public async Task TransferAsync_WithInsufficientFunds_DoesNotModifyBalances()
+     {
+         var (sender,    senderWallet)    = await SeedUserWithWalletAsync(50m);
+         var (recipient, recipientWallet) = await SeedUserWithWalletAsync(100m);
+
+         try { await _sut.TransferAsync(sender.Id, new TransferRequest(recipientWallet.Id, 200m, null)); }
+         catch (InvalidOperationException) { /* expected */ }
+
+         await _db.Entry(senderWallet).ReloadAsync();
+         await _db.Entry(recipientWallet).ReloadAsync();
+
+         Assert.Equal(50m,  senderWallet.Balance);
+         Assert.Equal(100m, recipientWallet.Balance);
+     }
+
+     [Fact]
+     public async Task TransferAsync_WithZeroAmount_ThrowsArgumentException()
+     {
+         var (sender,    _)               = await SeedUserWithWalletAsync(500m);
+         var (recipient, recipientWallet) = await SeedUserWithWalletAsync();
+
+         await Assert.ThrowsAsync<ArgumentException>(
+             () => _sut.TransferAsync(sender.Id,
+                 new TransferRequest(recipientWallet.Id, 0m, null)));
+     }
+
+     [Fact]
+     public async Task TransferAsync_ToNonExistentWallet_ThrowsKeyNotFoundException()
+     {
+         var (sender, _) = await SeedUserWithWalletAsync(500m);
+     
+         await Assert.ThrowsAsync<KeyNotFoundException>(
+             () => _sut.TransferAsync(sender.Id,
+                 new TransferRequest(Guid.NewGuid(), 100m, null)));
+     }
+    
+     [Fact]
+     public async Task TransferAsync_CrossCurrency_ThrowsInvalidOperationException()
+     {
+         var (sender,    _)               = await SeedUserWithWalletAsync(500m, "USD");
+         var (recipient, recipientWallet) = await SeedUserWithWalletAsync(0m,   "EUR");
+
+         await Assert.ThrowsAsync<InvalidOperationException>(
+             () => _sut.TransferAsync(sender.Id,
+                 new TransferRequest(recipientWallet.Id, 100m, null)));
+     }
     
     public void Dispose() => _db.Dispose();
 }

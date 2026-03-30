@@ -26,4 +26,11 @@ public class WalletsController : ControllerBase
     [HttpPost("topup")]
     public async Task<IActionResult> TopUp([FromBody] TopUpRequest req, CancellationToken ct) =>
         Ok(await _wallets.TopUpAsync(CurrentUserId, req, ct));
+    
+    [HttpPost("transfer")]
+    public async Task<IActionResult> Transfer([FromBody] TransferRequest req, CancellationToken ct)
+    {
+        await _wallets.TransferAsync(CurrentUserId, req, ct);
+        return NoContent();
+    }
 }
