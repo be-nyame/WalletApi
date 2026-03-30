@@ -3,6 +3,7 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using WalletApi.Application.Services;
+using WalletApi.Application.DTOs.Wallet;
 using WalletApi.Domain.Entities;
 using WalletApi.Infrastructure.Data;
 
@@ -77,6 +78,46 @@ public class WalletServiceTests : IDisposable
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => _sut.GetWalletAsync(user.Id));
     }
+    
+    [Fact]
+     public async Task TopUpAsync_WithValidAmount_IncreasesBalance()
+     {
+         var (user, _) = await SeedUserWithWalletAsync();
+
+         var result = await _sut.TopUpAsync(user.Id, new TopUpRequest(250m, "Test top-up"));
+
+         Assert.Equal(250m, result.Balance);
+     }
+
+     [Fact]
+     public async Task TopUpAsync_WithNegativeAmount_ThrowsArgumentException()
+     {
+         var (user, _) = await SeedUserWithWalletAsync();
+
+         await Assert.ThrowsAsync<ArgumentException>(
+             () => _sut.TopUpAsync(user.Id, new TopUpRequest(-50m, null)));
+     }
+
+     [Fact]
+     public async Task TopUpAsync_WithZeroAmount_ThrowsArgumentException()
+     {
+         var (user, _) = await SeedUserWithWalletAsync();
+
+         await Assert.ThrowsAsync<ArgumentException>(
+             () => _sut.TopUpAsync(user.Id, new TopUpRequest(0m, null)));
+     }
+
+     [Fact]
+     public async Task TopUpAsync_MultipleTopUps_AccumulatesBalance()
+     {
+         var (user, _) = await SeedUserWithWalletAsync();
+
+         await _sut.TopUpAsync(user.Id, new TopUpRequest(100m, null));
+         await _sut.TopUpAsync(user.Id, new TopUpRequest(200m, null));
+         var result = await _sut.TopUpAsync(user.Id, new TopUpRequest(50m, null));
+
+         Assert.Equal(350m, result.Balance);
+     }
     
     public void Dispose() => _db.Dispose();
 }
