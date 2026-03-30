@@ -33,4 +33,9 @@ public class WalletsController : ControllerBase
         await _wallets.TransferAsync(CurrentUserId, req, ct);
         return NoContent();
     }
+    
+    [HttpGet("transactions")]
+    public async Task<IActionResult> GetTransactions(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        Ok(await _wallets.GetTransactionsAsync(CurrentUserId, page, pageSize, ct));
 }
