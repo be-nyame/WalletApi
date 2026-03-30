@@ -10,6 +10,7 @@ public class Wallet : BaseEntity
     public bool IsActive { get; set; } = true;
 
     public User User { get; set; } = null!;
+    public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
 
     // Encapsulate balance mutation
     public void Credit(decimal amount)
