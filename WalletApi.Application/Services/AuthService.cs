@@ -57,6 +57,9 @@ public class AuthService : IAuthService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12)
         };
 
+        var wallet = new Wallet { UserId = user.Id, Currency = "USD" };
+        user.Wallets.Add(wallet);
+        
         try
         {
             await _db.Users.AddAsync(user, ct);
@@ -89,8 +92,9 @@ public class AuthService : IAuthService
         }
 
         _logger.LogInformation(
-            "Registration successful | UserId: {UserId} | Email: {Email}",
-            user.Id, user.Email);
+            "Registration successful | UserId: {UserId} | Email: {Email} | " +
+            "WalletId: {WalletId}",
+            user.Id, user.Email, wallet.Id);
 
         return tokens;
     }

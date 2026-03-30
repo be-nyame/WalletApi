@@ -1,5 +1,6 @@
 using FluentValidation.TestHelper;
 using WalletApi.Application.DTOs.Auth;
+using WalletApi.Application.DTOs.Wallet;
 using WalletApi.Application.Validators;
 
 namespace WalletApi.Tests.Validators;
@@ -64,5 +65,76 @@ public class RegisterRequestValidatorTests
         var req = new RegisterRequest(longName, "Doe", "john@example.com", "P@ssw0rd!");
         var result = _validator.TestValidate(req);
         result.ShouldHaveValidationErrorFor(x => x.FirstName);
+    }
+}
+
+public class TopUpRequestValidatorTests
+{
+    private readonly TopUpRequestValidator _validator = new();
+
+    [Fact]
+    public void ValidRequest_PassesValidation()
+    {
+        var req = new TopUpRequest(100m, "Top up");
+        var result = _validator.TestValidate(req);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    public void NonPositiveAmount_FailsValidation(decimal amount)
+    {
+        var req = new TopUpRequest(amount, null);
+        var result = _validator.TestValidate(req);
+        result.ShouldHaveValidationErrorFor(x => x.Amount);
+    }
+
+    [Fact]
+    public void ExcessiveAmount_FailsValidation()
+    {
+        var req = new TopUpRequest(1_000_001m, null);
+        var result = _validator.TestValidate(req);
+        result.ShouldHaveValidationErrorFor(x => x.Amount);
+    }
+
+    [Fact]
+    public void NullDescription_PassesValidation()
+    {
+        var req = new TopUpRequest(50m, null);
+        var result = _validator.TestValidate(req);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+}
+
+public class TransferRequestValidatorTests
+{
+    private readonly TransferRequestValidator _validator = new();
+
+    [Fact]
+    public void ValidRequest_PassesValidation()
+    {
+        var req = new TransferRequest(Guid.NewGuid(), 50m, "Payment");
+        var result = _validator.TestValidate(req);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void EmptyRecipientId_FailsValidation()
+    {
+        var req = new TransferRequest(Guid.Empty, 50m, null);
+        var result = _validator.TestValidate(req);
+        result.ShouldHaveValidationErrorFor(x => x.RecipientWalletId);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-10)]
+    public void NonPositiveAmount_FailsValidation(decimal amount)
+    {
+        var req = new TransferRequest(Guid.NewGuid(), amount, null);
+        var result = _validator.TestValidate(req);
+        result.ShouldHaveValidationErrorFor(x => x.Amount);
     }
 }
