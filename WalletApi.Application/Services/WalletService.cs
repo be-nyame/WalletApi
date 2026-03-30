@@ -33,6 +33,32 @@ public class WalletService : IWalletService
 
         return MapToResponse(wallet);
     }
+    
+    public async Task<WalletResponse> TopUpAsync(
+        Guid userId, TopUpRequest req, CancellationToken ct = default)
+    {
+        if (req.Amount <= 0)
+            throw new ArgumentException("Top-up amount must be greater than zero.");
+
+        _logger.LogInformation(
+            "TopUp started | UserId: {UserId} | Amount: {Amount}",
+            userId, req.Amount);
+
+        var wallet = await _db.Wallets
+                         .FirstOrDefaultAsync(w => w.UserId == userId && w.IsActive, ct)
+                     ?? throw new KeyNotFoundException("Wallet not found.");
+
+        wallet.Credit(req.Amount);
+        
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "TopUp completed | WalletId: {WalletId} | Amount: {Amount} | " +
+            "NewBalance: {Balance}",
+            wallet.Id, req.Amount, wallet.Balance);
+
+        return MapToResponse(wallet);
+    }
     private static WalletResponse MapToResponse(Wallet w) =>
         new(w.Id, w.Currency, w.Balance, w.IsActive, w.CreatedAt);
 }
