@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text;
+using MassTransit;
 using WalletApi.Application.Interfaces;
 using WalletApi.Application.Services;
 using WalletApi.Application.Validators;
@@ -24,6 +25,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 
 // Application services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;
@@ -78,6 +80,14 @@ builder.Services.AddSwaggerGen(c =>
             },
             Array.Empty<string>()
         }
+    });
+});
+
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingInMemory((context, cfg) =>
+    {
+        cfg.ConfigureEndpoints(context);
     });
 });
 
