@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using WalletApi.Application.DTOs.Wallet;
 using WalletApi.Application.Interfaces;
+using WalletApi.Application.Events;
 using WalletApi.Domain.Entities;
 using WalletApi.Domain.Enums;
 using WalletApi.Infrastructure.Data;
@@ -69,6 +70,16 @@ public class WalletService : IWalletService
             "TopUp completed | WalletId: {WalletId} | Amount: {Amount} | " +
             "NewBalance: {Balance} | Reference: {Reference}",
             wallet.Id, req.Amount, wallet.Balance, tx.Reference);
+
+        await _bus.Publish(new TopUpCompletedEvent(
+            WalletId:   wallet.Id,
+            UserId:     wallet.UserId,
+            UserEmail:  string.Empty,
+            Amount:     req.Amount,
+            Currency:   wallet.Currency,
+            Reference:  tx.Reference,
+            OccurredAt: DateTime.UtcNow
+        ), ct);
 
         return MapToResponse(wallet);
     }
@@ -216,6 +227,16 @@ public class WalletService : IWalletService
                 "Amount: {Amount} | SenderNewBalance: {SenderBalance}",
                 groupId, sender.Id, recipient.Id,
                 req.Amount, sender.Balance);
+
+            await _bus.Publish(new TransferCompletedEvent(
+                TransferReference:  groupId,
+                SenderWalletId:     sender.Id,
+                RecipientWalletId:  recipient.Id,
+                Amount:             req.Amount,
+                Currency:           sender.Currency,
+                SenderEmail:        string.Empty,
+                OccurredAt:         DateTime.UtcNow
+            ), ct);
         }
         catch (Exception ex)
         {
