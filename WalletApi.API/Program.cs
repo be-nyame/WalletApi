@@ -7,6 +7,7 @@ using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text;
 using MassTransit;
+using Serilog;
 using WalletApi.Application.Interfaces;
 using WalletApi.Application.Services;
 using WalletApi.Application.Validators;
@@ -119,6 +120,13 @@ else
     });
 }
 
+builder.Host.UseSerilog((ctx, services, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.Seq(ctx.Configuration["Seq:ServerUrl"]!));
+
 // Skipped in Testing — Postgres and RabbitMQ are not available there.
 if (!isTesting)
 {
@@ -167,6 +175,10 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 // Convert unhandled exceptions to structured JSON error responses.
 app.UseMiddleware<ExceptionMiddleware>();
+
+// Per-request structured logging (after exception handler so errors are
+// still captured as log entries).
+app.UseSerilogRequestLogging();
 
 // Decode JWT → populate HttpContext.User.
 app.UseAuthentication();
