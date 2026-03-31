@@ -11,6 +11,7 @@ public class WalletDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Wallet> Wallets => Set<Wallet>();
+    public DbSet<Transaction> Transactions => Set<Transaction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -25,5 +26,20 @@ public class WalletDbContext : DbContext
             // directly, bypassing the accessor. Without this, EF Core cannot 
             // hydrate Balance from the DB.
             .UsePropertyAccessMode(PropertyAccessMode.Property);
+        
+        builder.Entity<Transaction>()
+            .Property(t => t.Amount)
+            .HasColumnType("numeric(18,4)");
+
+        builder.Entity<Transaction>()
+            .HasIndex(t => t.Reference)
+            .IsUnique();
+
+        // Wallet → Transactions: restrict delete
+        builder.Entity<Transaction>()
+            .HasOne(t => t.Wallet)
+            .WithMany(w => w.Transactions)
+            .HasForeignKey(t => t.WalletId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
