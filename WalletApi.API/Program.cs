@@ -13,6 +13,7 @@ using WalletApi.Application.Validators;
 using WalletApi.Application.Consumers;
 using WalletApi.Infrastructure.Data;
 using WalletApi.API.Middleware;
+using WalletApi.API.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -118,6 +119,21 @@ else
     });
 }
 
+// Skipped in Testing — Postgres and RabbitMQ are not available there.
+if (!isTesting)
+{
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(
+            builder.Configuration.GetConnectionString("DefaultConnection")!,
+            name:    "postgres",
+            tags:    new[] { "ready" },
+            timeout: TimeSpan.FromSeconds(5))
+        .AddCheck<RabbitMqHealthCheck>(
+            name:    "rabbitmq",
+            tags:    new[] { "ready" },
+            timeout: TimeSpan.FromSeconds(5));
+}
+
 builder.Services.AddControllers();
 
 var app = builder.Build();
@@ -163,6 +179,25 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+if (!isTesting)
+{
+    // Process is alive, no dependency checks
+    app.MapHealthChecks("/health",
+        new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate      = _ => false,
+            ResponseWriter = HealthCheckResponseWriter.WriteHealthResponse
+        });
+
+    // Postgres and RabbitMQ are reachable
+    app.MapHealthChecks("/health/ready",
+        new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate      = check => check.Tags.Contains("ready"),
+            ResponseWriter = HealthCheckResponseWriter.WriteHealthResponse
+        });
 }
 
 app.MapControllers();
