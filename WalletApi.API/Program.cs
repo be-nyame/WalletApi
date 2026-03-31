@@ -10,6 +10,7 @@ using MassTransit;
 using WalletApi.Application.Interfaces;
 using WalletApi.Application.Services;
 using WalletApi.Application.Validators;
+using WalletApi.Application.Consumers;
 using WalletApi.Infrastructure.Data;
 using WalletApi.API.Middleware;
 
@@ -83,15 +84,39 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddMassTransit(x =>
-{
-    x.UsingInMemory((context, cfg) =>
-    {
-        cfg.ConfigureEndpoints(context);
-    });
-});
-
 var isTesting = builder.Environment.IsEnvironment("Testing");
+
+if (isTesting)
+{
+    builder.Services.AddMassTransitTestHarness();
+}
+else
+{
+    builder.Services.AddMassTransit(x =>
+    {
+        x.AddConsumer<TransferNotificationConsumer>();
+        x.AddConsumer<TopUpNotificationConsumer>();
+        x.AddConsumer<TransferAuditConsumer>();
+        x.AddConsumer<FraudDetectionConsumer>();
+
+        x.UsingRabbitMq((ctx, cfg) =>
+        {
+            cfg.Host(builder.Configuration["RabbitMq:Host"], "/", h =>
+            {
+                h.Username(builder.Configuration["RabbitMq:Username"]);
+                h.Password(builder.Configuration["RabbitMq:Password"]);
+            });
+
+            cfg.UseMessageRetry(r => r.Exponential(
+                retryLimit:    3,
+                minInterval:   TimeSpan.FromSeconds(1),
+                maxInterval:   TimeSpan.FromSeconds(30),
+                intervalDelta: TimeSpan.FromSeconds(5)));
+
+            cfg.ConfigureEndpoints(ctx);
+        });
+    });
+}
 
 builder.Services.AddControllers();
 
