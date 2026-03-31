@@ -7,12 +7,14 @@ using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text;
 using MassTransit;
+using Serilog;
 using WalletApi.Application.Interfaces;
 using WalletApi.Application.Services;
 using WalletApi.Application.Validators;
 using WalletApi.Application.Consumers;
 using WalletApi.Infrastructure.Data;
 using WalletApi.API.Middleware;
+using WalletApi.API.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -118,6 +120,28 @@ else
     });
 }
 
+builder.Host.UseSerilog((ctx, services, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.Seq(ctx.Configuration["Seq:ServerUrl"]!));
+
+// Skipped in Testing — Postgres and RabbitMQ are not available there.
+if (!isTesting)
+{
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(
+            builder.Configuration.GetConnectionString("DefaultConnection")!,
+            name:    "postgres",
+            tags:    new[] { "ready" },
+            timeout: TimeSpan.FromSeconds(5))
+        .AddCheck<RabbitMqHealthCheck>(
+            name:    "rabbitmq",
+            tags:    new[] { "ready" },
+            timeout: TimeSpan.FromSeconds(5));
+}
+
 builder.Services.AddControllers();
 
 var app = builder.Build();
@@ -152,6 +176,10 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 // Convert unhandled exceptions to structured JSON error responses.
 app.UseMiddleware<ExceptionMiddleware>();
 
+// Per-request structured logging (after exception handler so errors are
+// still captured as log entries).
+app.UseSerilogRequestLogging();
+
 // Decode JWT → populate HttpContext.User.
 app.UseAuthentication();
 
@@ -163,6 +191,25 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+if (!isTesting)
+{
+    // Process is alive, no dependency checks
+    app.MapHealthChecks("/health",
+        new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate      = _ => false,
+            ResponseWriter = HealthCheckResponseWriter.WriteHealthResponse
+        });
+
+    // Postgres and RabbitMQ are reachable
+    app.MapHealthChecks("/health/ready",
+        new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate      = check => check.Tags.Contains("ready"),
+            ResponseWriter = HealthCheckResponseWriter.WriteHealthResponse
+        });
 }
 
 app.MapControllers();
