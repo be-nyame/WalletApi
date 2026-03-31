@@ -4,23 +4,24 @@ using Microsoft.Extensions.Logging;
 using WalletApi.Application.DTOs.Wallet;
 using WalletApi.Application.Interfaces;
 using WalletApi.Domain.Entities;
+using WalletApi.Domain.Enums;
 using WalletApi.Infrastructure.Data;
 
 namespace WalletApi.Application.Services;
 
 public class WalletService : IWalletService
 {
-    private readonly WalletDbContext _db;
-    private readonly IPublishEndpoint _bus;
+    private readonly WalletDbContext       _db;
+    private readonly IPublishEndpoint      _bus;
     private readonly ILogger<WalletService> _logger;
 
     public WalletService(
-        WalletDbContext db,
-        IPublishEndpoint bus,
+        WalletDbContext        db,
+        IPublishEndpoint       bus,
         ILogger<WalletService> logger)
     {
-        _db = db;
-        _bus = bus;
+        _db     = db;
+        _bus    = bus;
         _logger = logger;
     }
 
@@ -28,12 +29,12 @@ public class WalletService : IWalletService
         Guid userId, CancellationToken ct = default)
     {
         var wallet = await _db.Wallets
-                         .FirstOrDefaultAsync(w => w.UserId == userId && w.IsActive, ct)
-                     ?? throw new KeyNotFoundException("Wallet not found.");
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.IsActive, ct)
+            ?? throw new KeyNotFoundException("Wallet not found.");
 
         return MapToResponse(wallet);
     }
-    
+
     public async Task<WalletResponse> TopUpAsync(
         Guid userId, TopUpRequest req, CancellationToken ct = default)
     {
@@ -45,22 +46,34 @@ public class WalletService : IWalletService
             userId, req.Amount);
 
         var wallet = await _db.Wallets
-                         .FirstOrDefaultAsync(w => w.UserId == userId && w.IsActive, ct)
-                     ?? throw new KeyNotFoundException("Wallet not found.");
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.IsActive, ct)
+            ?? throw new KeyNotFoundException("Wallet not found.");
 
         wallet.Credit(req.Amount);
-        
+
+        var tx = new Transaction
+        {
+            WalletId    = wallet.Id,
+            Amount      = req.Amount,
+            Currency    = wallet.Currency,
+            Type        = TransactionType.TopUp,
+            Status      = TransactionStatus.Completed,
+            Description = req.Description ?? "Top-up",
+            Reference   = "TU-" + Guid.NewGuid().ToString("N")[..8].ToUpper()
+        };
+
+        _db.Transactions.Add(tx);
         await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation(
             "TopUp completed | WalletId: {WalletId} | Amount: {Amount} | " +
-            "NewBalance: {Balance}",
-            wallet.Id, req.Amount, wallet.Balance);
+            "NewBalance: {Balance} | Reference: {Reference}",
+            wallet.Id, req.Amount, wallet.Balance, tx.Reference);
 
         return MapToResponse(wallet);
     }
-    
-        public async Task TransferAsync(
+
+    public async Task TransferAsync(
         Guid senderUserId, TransferRequest req, CancellationToken ct = default)
     {
         if (req.Amount <= 0)
@@ -165,6 +178,33 @@ public class WalletService : IWalletService
             var debitReference  = Guid.NewGuid().ToString("N");
             var creditReference = Guid.NewGuid().ToString("N");
 
+            _db.Transactions.AddRange(
+                new Transaction
+                {
+                    WalletId           = sender.Id,
+                    RecipientWalletId  = recipient.Id,
+                    Amount             = req.Amount,
+                    Currency           = sender.Currency,
+                    Type               = TransactionType.Transfer,
+                    Status             = TransactionStatus.Completed,
+                    Description        = req.Description ?? "Transfer sent",
+                    Reference          = debitReference,
+                    TransactionGroupId = groupId
+                },
+                new Transaction
+                {
+                    WalletId           = recipient.Id,
+                    RecipientWalletId  = sender.Id,
+                    Amount             = req.Amount,
+                    Currency           = sender.Currency,
+                    Type               = TransactionType.Transfer,
+                    Status             = TransactionStatus.Completed,
+                    Description        = $"Transfer received from wallet {sender.Id}",
+                    Reference          = creditReference,
+                    TransactionGroupId = groupId
+                }
+            );
+
             await _db.SaveChangesAsync(ct);
 
             if (dbTx != null)
@@ -193,7 +233,32 @@ public class WalletService : IWalletService
                 await dbTx.DisposeAsync();
         }
     }
-    
+
+    public async Task<List<TransactionResponse>> GetTransactionsAsync(
+        Guid userId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var wallet = await _db.Wallets
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.IsActive, ct)
+            ?? throw new KeyNotFoundException("Wallet not found.");
+
+        return await _db.Transactions
+            .Where(t => t.WalletId == wallet.Id)
+            .OrderByDescending(t => t.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(t => new TransactionResponse(
+                t.Id,
+                t.Reference,
+                t.TransactionGroupId,
+                t.Amount,
+                t.Currency,
+                t.Type.ToString(),
+                t.Status.ToString(),
+                t.Description,
+                t.CreatedAt))
+            .ToListAsync(ct);
+    }
+
     private static WalletResponse MapToResponse(Wallet w) =>
         new(w.Id, w.Currency, w.Balance, w.IsActive, w.CreatedAt);
 }

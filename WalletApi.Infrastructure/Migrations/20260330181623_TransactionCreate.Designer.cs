@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WalletApi.Infrastructure.Data;
@@ -11,9 +12,11 @@ using WalletApi.Infrastructure.Data;
 namespace WalletApi.Infrastructure.Migrations
 {
     [DbContext(typeof(WalletDbContext))]
-    partial class WalletDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260330181623_TransactionCreate")]
+    partial class TransactionCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -71,7 +74,7 @@ namespace WalletApi.Infrastructure.Migrations
 
                     b.HasIndex("WalletId");
 
-                    b.ToTable("Transactions");
+                    b.ToTable("Transaction");
                 });
 
             modelBuilder.Entity("WalletApi.Domain.Entities.User", b =>
