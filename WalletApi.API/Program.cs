@@ -120,12 +120,24 @@ else
     });
 }
 
-builder.Host.UseSerilog((ctx, services, config) => config
-    .ReadFrom.Configuration(ctx.Configuration)
-    .ReadFrom.Services(services)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.Seq(ctx.Configuration["Seq:ServerUrl"]!));
+builder.Host.UseSerilog((ctx, services, config) =>
+{
+    if (ctx.HostingEnvironment.IsEnvironment("Testing"))
+    {
+        config
+            .MinimumLevel.Warning()
+            .WriteTo.Console();
+    }
+    else
+    {
+        config
+            .ReadFrom.Configuration(ctx.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext()
+            .WriteTo.Console()
+            .WriteTo.Seq(ctx.Configuration["Seq:ServerUrl"]!);
+    }
+});
 
 // Skipped in Testing — Postgres and RabbitMQ are not available there.
 if (!isTesting)
