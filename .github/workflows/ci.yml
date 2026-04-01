@@ -8,12 +8,16 @@ on:
 
 env:
   REGISTRY:    ghcr.io
-  IMAGE_NAME:  ${{ github.repository }}/wallet-api
+  IMAGE_NAME:  ${{ github.repository }}/wallet-api 
 
 jobs:
   test:
     name: Build & Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
 
     services:
       postgres:
