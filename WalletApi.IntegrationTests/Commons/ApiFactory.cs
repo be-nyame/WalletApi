@@ -32,3 +32,28 @@ public class AuthApiFactory : WebApplicationFactory<Program>
         });
     }
 }
+
+/// <summary>
+/// A single <see cref="WebApplicationFactory{TEntryPoint}"/> shared across
+/// Same structure as AuthApiFactory
+/// </summary>
+public class WalletApiFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Testing");
+
+        builder.ConfigureServices(services =>
+        {
+            var internalServiceProvider = new ServiceCollection()
+                .AddEntityFrameworkInMemoryDatabase()
+                .BuildServiceProvider();
+
+            services.AddDbContext<WalletDbContext>(options =>
+            {
+                options.UseInMemoryDatabase("WalletTestDb");
+                options.UseInternalServiceProvider(internalServiceProvider);
+            });
+        });
+    }
+}
